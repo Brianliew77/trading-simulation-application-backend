@@ -19,3 +19,10 @@ def ping_db(db: Session = Depends(get_db)):
         return {"status": "Database connection successful"}
     except Exception as e:
         return {"status": "Database connection failed", "error": str(e)}
+
+
+@app.get("/stocks")
+def get_stocks(db: Session = Depends(get_db)):
+    result = db.execute(text("SELECT * FROM simulated_aapl_live LIMIT 5"))
+    rows = [dict(row._mapping) for row in result]
+    return rows
