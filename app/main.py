@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
-from app.models import SimulatedAAPL
+from app.models import SimulatedAAPL, SimulatedGOOG, SimulatedIBM, SimulatedMSFT, SimulatedTSLA, SimulatedUL, SimulatedWMT
 from typing import List
 
 app = FastAPI()
@@ -36,5 +36,13 @@ def ping_db(db: Session = Depends(get_db)):
 
 @app.get("/stocks")
 def get_stocks(db: Session = Depends(get_db)):
-    result = db.query(SimulatedAAPL).limit(2).all()
+    result = {
+        "aapl": db.query(SimulatedAAPL).limit(2).all(),
+        "goog": db.query(SimulatedGOOG).limit(2).all(),
+        "ibm": db.query(SimulatedIBM).limit(2).all(),
+        "msft": db.query(SimulatedMSFT).limit(2).all(),
+        "tsla": db.query(SimulatedTSLA).limit(2).all(),
+        "ul": db.query(SimulatedUL).limit(2).all(),
+        "wmt": db.query(SimulatedWMT).limit(2).all(),
+    }
     return result
