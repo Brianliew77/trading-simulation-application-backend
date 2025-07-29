@@ -2,8 +2,21 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import SessionLocal
+from fastapi.middleware.cors import CORSMiddleware
+from app.models import SimulatedAAPL
+from typing import List
 
 app = FastAPI()
+
+# 👇 Allow your React frontend to access the FastAPI backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def get_db():
     db = SessionLocal()
@@ -23,6 +36,5 @@ def ping_db(db: Session = Depends(get_db)):
 
 @app.get("/stocks")
 def get_stocks(db: Session = Depends(get_db)):
-    result = db.execute(text("SELECT * FROM simulated_aapl_live LIMIT 5"))
-    rows = [dict(row._mapping) for row in result]
-    return rows
+    result = db.query(SimulatedAAPL).limit(2).all()
+    return result
