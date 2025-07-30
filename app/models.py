@@ -164,3 +164,144 @@ class WMTHistorical(Base):
     volume = Column(Integer)
     dividend_amount = Column(Float)
     split_coefficient = Column(Float)
+
+
+class CombinedAAPLData(Base):
+    __tablename__ = "combined_aapl_data"
+
+    timestamp = Column(String, primary_key=True, index=True)
+    timestamp_date = Column(String)
+    timestamp_time = Column(String)
+    live_open = Column(Float)
+    high_min = Column(Float)
+    low_min = Column(Float)
+    live_close = Column(Float)
+    volume_curr_price = Column(Integer)
+    hist_open = Column(Float)
+    hist_high = Column(Float)
+    hist_low = Column(Float)
+    hist_close = Column(Float)
+    adjusted_close = Column(Float)
+    hist_volume = Column(Integer)
+    dividend_amount = Column(Float)
+    split_coefficient = Column(Float)
+
+class CombinedGOOGData(Base):
+    __tablename__ = "combined_goog_data"
+    # Same schema as above
+    timestamp = Column(String, primary_key=True, index=True)
+    timestamp_date = Column(String)
+    timestamp_time = Column(String)
+    live_open = Column(Float)
+    high_min = Column(Float)
+    low_min = Column(Float)
+    live_close = Column(Float)
+    volume_curr_price = Column(Integer)
+    hist_open = Column(Float)
+    hist_high = Column(Float)
+    hist_low = Column(Float)
+    hist_close = Column(Float)
+    adjusted_close = Column(Float)
+    hist_volume = Column(Integer)
+    dividend_amount = Column(Float)
+    split_coefficient = Column(Float)
+
+class CombinedIBMData(Base):
+    __tablename__ = "combined_ibm_data"
+    # Repeat same fields as above
+    timestamp = Column(String, primary_key=True, index=True)
+    timestamp_date = Column(String)
+    timestamp_time = Column(String)
+    live_open = Column(Float)
+    high_min = Column(Float)
+    low_min = Column(Float)
+    live_close = Column(Float)
+    volume_curr_price = Column(Integer)
+    hist_open = Column(Float)
+    hist_high = Column(Float)
+    hist_low = Column(Float)
+    hist_close = Column(Float)
+    adjusted_close = Column(Float)
+    hist_volume = Column(Integer)
+    dividend_amount = Column(Float)
+    split_coefficient = Column(Float)
+
+class CombinedMSFTData(Base):
+    __tablename__ = "combined_msft_data"
+    # Repeat same fields
+    timestamp = Column(String, primary_key=True, index=True)
+    timestamp_date = Column(String)
+    timestamp_time = Column(String)
+    live_open = Column(Float)
+    high_min = Column(Float)
+    low_min = Column(Float)
+    live_close = Column(Float)
+    volume_curr_price = Column(Integer)
+    hist_open = Column(Float)
+    hist_high = Column(Float)
+    hist_low = Column(Float)
+    hist_close = Column(Float)
+    adjusted_close = Column(Float)
+    hist_volume = Column(Integer)
+    dividend_amount = Column(Float)
+    split_coefficient = Column(Float)
+
+class CombinedTSLAData(Base):
+    __tablename__ = "combined_tsla_data"
+    # Repeat same fields
+    timestamp = Column(String, primary_key=True, index=True)
+    timestamp_date = Column(String)
+    timestamp_time = Column(String)
+    live_open = Column(Float)
+    high_min = Column(Float)
+    low_min = Column(Float)
+    live_close = Column(Float)
+    volume_curr_price = Column(Integer)
+    hist_open = Column(Float)
+    hist_high = Column(Float)
+    hist_low = Column(Float)
+    hist_close = Column(Float)
+    adjusted_close = Column(Float)
+    hist_volume = Column(Integer)
+    dividend_amount = Column(Float)
+    split_coefficient = Column(Float)
+
+class CombinedULData(Base):
+    __tablename__ = "combined_ul_data"
+    # Repeat same fields
+    timestamp = Column(String, primary_key=True, index=True)
+    timestamp_date = Column(String)
+    timestamp_time = Column(String)
+    live_open = Column(Float)
+    high_min = Column(Float)
+    low_min = Column(Float)
+    live_close = Column(Float)
+    volume_curr_price = Column(Integer)
+    hist_open = Column(Float)
+    hist_high = Column(Float)
+    hist_low = Column(Float)
+    hist_close = Column(Float)
+    adjusted_close = Column(Float)
+    hist_volume = Column(Integer)
+    dividend_amount = Column(Float)
+    split_coefficient = Column(Float)
+
+class CombinedWMTData(Base):
+    __tablename__ = "combined_wmt_data"
+    # Repeat same fields
+    timestamp = Column(String, primary_key=True, index=True)
+    timestamp_date = Column(String)
+    timestamp_time = Column(String)
+    live_open = Column(Float)
+    high_min = Column(Float)
+    low_min = Column(Float)
+    live_close = Column(Float)
+    volume_curr_price = Column(Integer)
+    hist_open = Column(Float)
+    hist_high = Column(Float)
+    hist_low = Column(Float)
+    hist_close = Column(Float)
+    adjusted_close = Column(Float)
+    hist_volume = Column(Integer)
+    dividend_amount = Column(Float)
+    split_coefficient = Column(Float)
