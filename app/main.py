@@ -5,6 +5,7 @@ from app.database import SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import SimulatedAAPL, SimulatedGOOG, SimulatedIBM, SimulatedMSFT, SimulatedTSLA, SimulatedUL, SimulatedWMT
 from app.models import GOOGHistorical, IBMHistorical, MSFTHistorical, AAPLHistorical,TSLAHistorical, ULHistorical, WMTHistorical
+from app.models import CombinedAAPLData, CombinedGOOGData, CombinedIBMData, CombinedMSFTData, CombinedTSLAData, CombinedULData, CombinedWMTData
 from typing import List
 
 app = FastAPI()
@@ -34,26 +35,37 @@ def ping_db(db: Session = Depends(get_db)):
     except Exception as e:
         return {"status": "Database connection failed", "error": str(e)}
 
+@app.get("/timestamps", response_model=List[str])
+def get_timestamps(db: Session = Depends(get_db)):
+    # Using AAPL table as reference
+    rows = db.query(CombinedAAPLData.timestamp).distinct().all()
+    return [row[0] for row in rows]
 
-@app.get("/stocks")
-def get_stocks(db: Session = Depends(get_db)):
-    result = {
-        # Live data
-        "aapl_live": db.query(SimulatedAAPL).limit(2).all(),
-        "goog_live": db.query(SimulatedGOOG).limit(2).all(),
-        "ibm_live": db.query(SimulatedIBM).limit(2).all(),
-        "msft_live": db.query(SimulatedMSFT).limit(2).all(),
-        "tsla_live": db.query(SimulatedTSLA).limit(2).all(),
-        "ul_live": db.query(SimulatedUL).limit(2).all(),
-        "wmt_live": db.query(SimulatedWMT).limit(2).all(),
+@app.get("/trading-data")
+def get_trading_data(timestamp: str, db: Session = Depends(get_db)):
+    tickers = [
+        ("AAPL", CombinedAAPLData),
+        ("GOOG", CombinedGOOGData),
+        ("IBM", CombinedIBMData),
+        ("MSFT", CombinedMSFTData),
+        ("TSLA", CombinedTSLAData),
+        ("UL", CombinedULData),
+        ("WMT", CombinedWMTData),
+    ]
 
-        # Historical data
-        "aapl_hist": db.query(AAPLHistorical).limit(2).all(),
-        "goog_hist": db.query(GOOGHistorical).limit(2).all(),
-        "ibm_hist": db.query(IBMHistorical).limit(2).all(),
-        "msft_hist": db.query(MSFTHistorical).limit(2).all(),
-        "tsla_hist": db.query(TSLAHistorical).limit(2).all(),
-        "ul_hist": db.query(ULHistorical).limit(2).all(),
-        "wmt_hist": db.query(WMTHistorical).limit(2).all(),
-    }
-    return result
+    results = []
+    for ticker, model in tickers:
+        row = db.query(model).filter(model.timestamp == timestamp).first()
+        if row:
+            results.append({
+                "ticker": ticker,
+                "high": row.high_min,
+                "low": row.low_min,
+                "volume_curr_price": row.volume_curr_price,
+                "open": row.hist_open,
+                "todays_high": row.hist_high,
+                "todays_low": row.hist_low,
+                "close": row.hist_close,
+                "hist_volume": row.hist_volume
+            })
+    return results
