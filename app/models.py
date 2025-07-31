@@ -344,3 +344,4 @@ class OrderDetails(Base):
     datetime = Column(Text, nullable=False)
     trade_type = Column(String(10), nullable=False)
     account_number = Column(Integer, nullable=False)
+    status = Column(Text, nullable=False)

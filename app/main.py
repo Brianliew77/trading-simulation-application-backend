@@ -96,6 +96,7 @@ def get_order_details(db: Session = Depends(get_db)):
             "datetime": order.datetime,
             "trade_type": order.trade_type,
             "account_number": order.account_number,
+            "status": order.status
         }
         for order in orders
     ]
