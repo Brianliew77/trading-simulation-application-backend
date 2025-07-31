@@ -10,6 +10,8 @@ from typing import List
 
 app = FastAPI()
 
+BRIAN_ACC_NUM = 219771
+
 # 👇 Allow your React frontend to access the FastAPI backend
 app.add_middleware(
     CORSMiddleware,
@@ -69,3 +71,12 @@ def get_trading_data(timestamp: str, db: Session = Depends(get_db)):
                 "hist_volume": row.vol_rolling_average
             })
     return results
+
+
+@app.get("/account-details")
+def get_account_details(db: Session = Depends(get_db)):
+    account_number = BRIAN_ACC_NUM # fixed for now
+    result = db.execute(text(f"SELECT * FROM account_details WHERE account_number = {account_number}")).fetchone()
+    if result:
+        return {"account_number": result[0], "cash_balance": float(result[1])}
+    return {"error": "Account not found"}

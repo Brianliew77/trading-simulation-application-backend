@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Integer
+from sqlalchemy import Column, String, Float, Integer, Numeric
 from app.database import Base
 
 class SimulatedAAPL(Base):
@@ -326,3 +326,9 @@ class CombinedWMTData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+
+class AccountDetails(Base):
+    __tablename__ = "account_details"
+
+    account_number = Column(Integer, primary_key=True, index=True)
+    cash_balance = Column(Numeric(15, 2))
