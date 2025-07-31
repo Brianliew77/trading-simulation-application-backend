@@ -331,7 +331,7 @@ class AccountDetails(Base):
     __tablename__ = "account_details"
 
     account_number = Column(Integer, primary_key=True, index=True)
-    cash_balance = Column(Numeric(15, 2))
+    cash_total = Column(Numeric(15, 2))
 
 class OrderDetails(Base):
     __tablename__ = "order_details"

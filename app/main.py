@@ -79,7 +79,7 @@ def get_account_details(db: Session = Depends(get_db)):
     account_number = BRIAN_ACC_NUM # fixed for now
     result = db.execute(text(f"SELECT * FROM account_details WHERE account_number = {account_number}")).fetchone()
     if result:
-        return {"account_number": result[0], "cash_balance": float(result[1])}
+        return {"account_number": result[0], "cash_total": float(result[1])}
     return {"error": "Account not found"}
 
 
