@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.models import SimulatedAAPL, SimulatedGOOG, SimulatedIBM, SimulatedMSFT, SimulatedTSLA, SimulatedUL, SimulatedWMT
 from app.models import GOOGHistorical, IBMHistorical, MSFTHistorical, AAPLHistorical,TSLAHistorical, ULHistorical, WMTHistorical
 from app.models import CombinedAAPLData, CombinedGOOGData, CombinedIBMData, CombinedMSFTData, CombinedTSLAData, CombinedULData, CombinedWMTData
+from app.models import OrderDetails
 from typing import List
 
 app = FastAPI()
@@ -80,3 +81,21 @@ def get_account_details(db: Session = Depends(get_db)):
     if result:
         return {"account_number": result[0], "cash_balance": float(result[1])}
     return {"error": "Account not found"}
+
+
+@app.get("/order-details")
+def get_order_details(db: Session = Depends(get_db)):
+    orders = db.query(OrderDetails).all()
+    return [
+        {
+            "id": order.id,
+            "ticker": order.ticker,
+            "quantity": order.quantity,
+            "action": order.action,
+            "portfolio_balance_change": float(order.portfolio_balance_change),
+            "datetime": order.datetime,
+            "trade_type": order.trade_type,
+            "account_number": order.account_number,
+        }
+        for order in orders
+    ]

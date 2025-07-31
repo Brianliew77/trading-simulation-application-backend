@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Integer, Numeric
+from sqlalchemy import Column, String, Float, Integer, Numeric, String, DECIMAL, Text
 from app.database import Base
 
 class SimulatedAAPL(Base):
@@ -332,3 +332,15 @@ class AccountDetails(Base):
 
     account_number = Column(Integer, primary_key=True, index=True)
     cash_balance = Column(Numeric(15, 2))
+
+class OrderDetails(Base):
+    __tablename__ = "order_details"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticker = Column(String(10), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    action = Column(String(10), nullable=False)
+    portfolio_balance_change = Column(DECIMAL(15, 2), nullable=False)
+    datetime = Column(Text, nullable=False)
+    trade_type = Column(String(10), nullable=False)
+    account_number = Column(Integer, nullable=False)
