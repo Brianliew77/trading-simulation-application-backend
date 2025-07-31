@@ -111,3 +111,26 @@ def get_account_details(db: Session = Depends(get_db)):
             "cash_total": float(result[1]) + float(sum_count)
         }
     return {"error": "Account not found"}
+
+
+@app.get("/trading-last-price")
+def get_trading_last_price(timestamp: str, db: Session = Depends(get_db)):
+    tickers = [
+        ("AAPL", CombinedAAPLData),
+        ("GOOG", CombinedGOOGData),
+        ("IBM", CombinedIBMData),
+        ("MSFT", CombinedMSFTData),
+        ("TSLA", CombinedTSLAData),
+        ("UL", CombinedULData),
+        ("WMT", CombinedWMTData),
+    ]
+
+    results = []
+    for ticker, model in tickers:
+        row = db.query(model).filter(model.timestamp == timestamp).first()
+        if row:
+            results.append({
+                "ticker": ticker,
+                "last_price": row.last_price,
+            })
+    return results
