@@ -188,6 +188,7 @@ class CombinedAAPLData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+    last_price = Column(Float)
 
 class CombinedGOOGData(Base):
     __tablename__ = "combined_goog_data"
@@ -211,6 +212,7 @@ class CombinedGOOGData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+    last_price = Column(Float)
 
 class CombinedIBMData(Base):
     __tablename__ = "combined_ibm_data"
@@ -234,6 +236,7 @@ class CombinedIBMData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+    last_price = Column(Float)
 
 class CombinedMSFTData(Base):
     __tablename__ = "combined_msft_data"
@@ -257,6 +260,7 @@ class CombinedMSFTData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+    last_price = Column(Float)
 
 class CombinedTSLAData(Base):
     __tablename__ = "combined_tsla_data"
@@ -280,6 +284,7 @@ class CombinedTSLAData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+    last_price = Column(Float)
 
 class CombinedULData(Base):
     __tablename__ = "combined_ul_data"
@@ -303,6 +308,7 @@ class CombinedULData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+    last_price = Column(Float)
 
 class CombinedWMTData(Base):
     __tablename__ = "combined_wmt_data"
@@ -326,6 +332,7 @@ class CombinedWMTData(Base):
     vol_rolling_average = Column(Float)
     low_rolling_average = Column(Float)
     high_rolling_average = Column(Float)
+    last_price = Column(Float)
 
 class AccountDetails(Base):
     __tablename__ = "account_details"
