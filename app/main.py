@@ -89,7 +89,8 @@ def get_order_details(db: Session = Depends(get_db)):
             "trade_type": order.trade_type,
             "account_number": order.account_number,
             "status": order.status,
-            "quantity_filled": order.quantity_filled
+            "quantity_filled": order.quantity_filled,
+            "price": order.price
         }
         for order in orders
     ]

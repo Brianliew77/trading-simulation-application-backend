@@ -353,3 +353,4 @@ class OrderDetails(Base):
     account_number = Column(Integer, nullable=False)
     status = Column(Text, nullable=False)
     quantity_filled = Column(Integer, nullable=False)
+    price = Column(Float)
