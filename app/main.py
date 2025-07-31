@@ -74,15 +74,6 @@ def get_trading_data(timestamp: str, db: Session = Depends(get_db)):
     return results
 
 
-@app.get("/account-details")
-def get_account_details(db: Session = Depends(get_db)):
-    account_number = BRIAN_ACC_NUM # fixed for now
-    result = db.execute(text(f"SELECT * FROM account_details WHERE account_number = {account_number}")).fetchone()
-    if result:
-        return {"account_number": result[0], "cash_total": float(result[1])}
-    return {"error": "Account not found"}
-
-
 @app.get("/order-details")
 def get_order_details(db: Session = Depends(get_db)):
     orders = db.query(OrderDetails).all()
@@ -101,3 +92,21 @@ def get_order_details(db: Session = Depends(get_db)):
         }
         for order in orders
     ]
+
+
+
+@app.get("/account-details")
+def get_account_details(db: Session = Depends(get_db)):
+    account_number = BRIAN_ACC_NUM # fixed for now
+    result = db.execute(text(f"SELECT * FROM account_details WHERE account_number = {account_number}")).fetchone()
+    orders = db.query(OrderDetails).filter(OrderDetails.account_number == account_number).all()
+    sum_count = 0
+    for order in orders:
+        if order.portfolio_balance_change is not None:
+            sum_count += order.portfolio_balance_change
+    if result:
+        return {
+            "account_number": result[0],
+            "cash_total": float(result[1]) + float(sum_count)
+        }
+    return {"error": "Account not found"}
