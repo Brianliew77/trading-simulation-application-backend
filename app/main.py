@@ -63,8 +63,8 @@ def get_trading_data(timestamp: str, db: Session = Depends(get_db)):
                 "low": row.low_min,
                 "volume_curr_price": row.volume_curr_price,
                 "open": row.hist_open,
-                "todays_high": row.hist_high,
-                "todays_low": row.hist_low,
+                "todays_high": row.high_rolling_average,
+                "todays_low": row.low_rolling_average,
                 "close": row.hist_close,
                 "hist_volume": row.vol_rolling_average
             })
