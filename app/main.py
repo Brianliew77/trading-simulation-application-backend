@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text, and_
 from app.database import SessionLocal
@@ -7,7 +7,8 @@ from app.models import SimulatedAAPL, SimulatedGOOG, SimulatedIBM, SimulatedMSFT
 from app.models import GOOGHistorical, IBMHistorical, MSFTHistorical, AAPLHistorical,TSLAHistorical, ULHistorical, WMTHistorical
 from app.models import CombinedAAPLData, CombinedGOOGData, CombinedIBMData, CombinedMSFTData, CombinedTSLAData, CombinedULData, CombinedWMTData
 from app.models import OrderDetails
-from typing import List
+from typing import List, Literal
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
@@ -29,6 +30,15 @@ def get_db():
         yield db
     finally:
         db.close()
+
+class OrderCreate(BaseModel):
+    ticker: str
+    action: Literal["BUY", "SELL"]
+    price: float = Field(gt=0)
+    quantity: int = Field(gt=0)
+    trade_type: Literal["LIMIT", "MARKET"]
+    datetime: str                       # "YYYY-MM-DD HH:MM:SS"
+    account_number: int = BRIAN_ACC_NUM
 
 @app.get("/ping-db")
 def ping_db(db: Session = Depends(get_db)):
@@ -165,3 +175,59 @@ def get_trading_last_price(timestamp: str, db: Session = Depends(get_db)):
             })
 
     return results
+
+@app.post("/orders")
+def create_order(order: OrderCreate, db: Session = Depends(get_db)):
+    # normalize
+    ticker = order.ticker.upper().strip()
+    action = order.action.upper().strip()
+    trade_type = order.trade_type.upper().strip()
+
+    # 1) quantity_filled & status
+    if trade_type == "MARKET":
+        quantity_filled = order.quantity
+        status = "FILLED"
+    else:  # LIMIT
+        # 50% filled rule
+        quantity_filled = int(round(order.quantity * 0.5))
+        status = "PARTIALLY FILLED"
+
+    # 2) portfolio_balance_change
+    # BUY = outflow (negative), SELL = inflow (positive)
+    sign = -1 if action == "BUY" else 1
+    portfolio_change = sign * (order.price * quantity_filled)
+
+    # 3) insert
+    row = OrderDetails(
+        ticker=ticker,
+        quantity=order.quantity,
+        action=action,
+        portfolio_balance_change=portfolio_change,
+        datetime=order.datetime,      # stored as text in your table
+        trade_type=trade_type,
+        account_number=order.account_number,
+        status=status,
+        quantity_filled=quantity_filled,
+        price=order.price,
+    )
+
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    return {
+        "id": row.id,
+        "message": "Order recorded",
+        "saved": {
+            "ticker": row.ticker,
+            "action": row.action,
+            "trade_type": row.trade_type,
+            "quantity": row.quantity,
+            "quantity_filled": row.quantity_filled,
+            "price": row.price,
+            "datetime": row.datetime,
+            "account_number": row.account_number,
+            "status": row.status,
+            "portfolio_balance_change": float(row.portfolio_balance_change),
+        },
+    }
