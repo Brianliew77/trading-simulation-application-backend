@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, and_
 from app.database import SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import SimulatedAAPL, SimulatedGOOG, SimulatedIBM, SimulatedMSFT, SimulatedTSLA, SimulatedUL, SimulatedWMT
@@ -114,6 +114,7 @@ def get_account_details(db: Session = Depends(get_db)):
     return {"error": "Account not found"}
 
 
+
 @app.get("/trading-last-price")
 def get_trading_last_price(timestamp: str, db: Session = Depends(get_db)):
     tickers = [
@@ -129,9 +130,38 @@ def get_trading_last_price(timestamp: str, db: Session = Depends(get_db)):
     results = []
     for ticker, model in tickers:
         row = db.query(model).filter(model.timestamp == timestamp).first()
+        
         if row:
+            # Fetch all relevant orders
+            orders = db.query(OrderDetails).filter(
+                and_(
+                    OrderDetails.ticker == ticker,
+                    OrderDetails.account_number == BRIAN_ACC_NUM,
+                    OrderDetails.action == "BUY",
+                    OrderDetails.status.in_(["FILLED", "PARTIALLY FILLED"])
+                )
+            ).all()
+
+            total_qty = 0
+            total_cost = 0.0
+            for order in orders:
+                try:
+                    qty = int(order.quantity_filled)
+                    price = order.price or 0.0
+                    total_qty += qty
+                    total_cost += qty * price
+                except:
+                    continue
+
+            average_price = (total_cost / total_qty) if total_qty > 0 else 0.0
+
+            profits = (row.last_price - average_price) * total_qty
             results.append({
                 "ticker": ticker,
                 "last_price": row.last_price,
+                "quantity_owned": total_qty,
+                "average_buy_price": round(average_price, 4),
+                "profit": round(profits,2)
             })
+
     return results
