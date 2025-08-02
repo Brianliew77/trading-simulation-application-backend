@@ -248,15 +248,12 @@ def fetch_market_info(
     *,
     ticker: Optional[str] = None,
     search: Optional[str] = None,
-    order: Literal["asc", "desc"] = "desc",
+    order: Literal["asc", "desc"] = "asc",  # default to id ascending for 1..20
     order_by: Literal["id", "timestamp_human"] = "id",
-    limit: int = 20,  # fixed top 20
 ) -> List[StockNewsSummary]:
     """
-    Return the top N (default 20) news rows.
-    Deterministic ordering via `order_by`:
-      - "id" (recommended; reflects insert order if your table has an auto-increment id)
-      - "timestamp_human"
+    Return rows where id is between 1 and 20 (inclusive).
+    Deterministic ordering via `order_by` (defaults to id).
     """
     stmt = select(StockNewsSummary).options(
         load_only(
@@ -267,26 +264,29 @@ def fetch_market_info(
         )
     )
 
+    # Restrict to id 1..20
+    if not hasattr(StockNewsSummary, "id"):
+        raise ValueError("StockNewsSummary.id is required to filter id=1..20.")
+    stmt = stmt.where(StockNewsSummary.id.between(1, 20))
+
     if ticker:
         stmt = stmt.where(StockNewsSummary.ticker_1 == ticker)
 
     if search:
         stmt = stmt.where(StockNewsSummary.headline.ilike(f"%{search}%"))
 
-    # Choose order column; fallback if attribute not present
-    order_col = getattr(StockNewsSummary, order_by, None) or StockNewsSummary.timestamp_human
+    # Choose order column; default to id
+    order_col = getattr(StockNewsSummary, order_by, None) or StockNewsSummary.id
 
     if order == "asc":
         stmt = stmt.order_by(order_col.asc())
-        # stable tie-breaker if id exists and isn't primary order col
-        if hasattr(StockNewsSummary, "id") and order_col is not StockNewsSummary.id:
+        # stable tie-breaker
+        if order_col is not StockNewsSummary.id:
             stmt = stmt.order_by(order_col.asc(), StockNewsSummary.id.asc())
     else:
         stmt = stmt.order_by(order_col.desc())
-        if hasattr(StockNewsSummary, "id") and order_col is not StockNewsSummary.id:
+        if order_col is not StockNewsSummary.id:
             stmt = stmt.order_by(order_col.desc(), StockNewsSummary.id.desc())
-
-    stmt = stmt.limit(limit)
 
     rows = db.execute(stmt).scalars().all()
     return rows
@@ -296,7 +296,7 @@ def fetch_market_info(
 def get_market_info(
     ticker: Optional[str] = Query(None, description="Filter by ticker_1"),
     search: Optional[str] = Query(None, description="Search in headline"),
-    order: Literal["asc", "desc"] = "desc",
+    order: Literal["asc", "desc"] = "asc",  # default to id ascending for 1..20
     order_by: Literal["id", "timestamp_human"] = "id",
     db: Session = Depends(get_db),
 ):
@@ -306,7 +306,6 @@ def get_market_info(
         search=search,
         order=order,
         order_by=order_by,
-        limit=20,  # fixed top 20
     )
     return {
         "total": len(rows),
