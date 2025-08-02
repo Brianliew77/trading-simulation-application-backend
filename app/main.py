@@ -1,14 +1,15 @@
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import text, and_
+from fastapi import FastAPI, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, load_only
+from sqlalchemy import text, and_, select, func
 from app.database import SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import SimulatedAAPL, SimulatedGOOG, SimulatedIBM, SimulatedMSFT, SimulatedTSLA, SimulatedUL, SimulatedWMT
 from app.models import GOOGHistorical, IBMHistorical, MSFTHistorical, AAPLHistorical,TSLAHistorical, ULHistorical, WMTHistorical
 from app.models import CombinedAAPLData, CombinedGOOGData, CombinedIBMData, CombinedMSFTData, CombinedTSLAData, CombinedULData, CombinedWMTData
-from app.models import OrderDetails
-from typing import List, Literal
+from app.models import OrderDetails, StockNewsSummary
+from typing import List, Literal, Optional, Union, Tuple
 from pydantic import BaseModel, Field
+from datetime import datetime, date, time as dtime, timezone, timedelta
 
 app = FastAPI()
 
@@ -39,6 +40,16 @@ class OrderCreate(BaseModel):
     trade_type: Literal["LIMIT", "MARKET"]
     datetime: str                       # "YYYY-MM-DD HH:MM:SS"
     account_number: int = BRIAN_ACC_NUM
+
+class NewsItem(BaseModel):
+    headline: str
+    timestamp_human: str | None = None
+    topic_tags: str | None = None
+    ticker_1: str | None = None
+
+class NewsResponse(BaseModel):
+    total: int
+    items: List[NewsItem]
 
 @app.get("/ping-db")
 def ping_db(db: Session = Depends(get_db)):
@@ -231,3 +242,190 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db)):
             "portfolio_balance_change": float(row.portfolio_balance_change),
         },
     }
+
+def fetch_market_info(
+    db: Session,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    ticker: Optional[str] = None,
+    search: Optional[str] = None,
+    order: Literal["asc", "desc"] = "desc",
+    order_by: Literal["id", "timestamp_human"] = "id",
+) -> Tuple[int, List[StockNewsSummary]]:
+    """
+    Fetch 4 columns with filters/pagination and deterministic ordering.
+
+    order_by:
+      - "id"               -> uses StockNewsSummary.id when available (insert order).
+      - "timestamp_human"  -> orders by timestamp_human text column.
+    order: "asc" | "desc"
+    """
+    stmt = select(StockNewsSummary).options(
+        load_only(
+            StockNewsSummary.headline,
+            StockNewsSummary.timestamp_human,
+            StockNewsSummary.topic_tags,
+            StockNewsSummary.ticker_1,
+        )
+    )
+
+    if ticker:
+        stmt = stmt.where(StockNewsSummary.ticker_1 == ticker)
+
+    if search:
+        stmt = stmt.where(StockNewsSummary.headline.ilike(f"%{search}%"))
+
+    # Count total before paging
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+
+    # ----- Ordering -----
+    # Choose the primary order column (fallback to timestamp_human if id not present)
+    order_col = getattr(StockNewsSummary, order_by, None)
+    if order_col is None:
+        order_col = StockNewsSummary.timestamp_human  # safe fallback
+
+    if order.lower() == "asc":
+        stmt = stmt.order_by(order_col.asc())
+        # add stable tie-breaker if id exists and isn't the primary column
+        if hasattr(StockNewsSummary, "id") and order_col is not StockNewsSummary.id:
+            stmt = stmt.order_by(order_col.asc(), StockNewsSummary.id.asc())
+    else:
+        stmt = stmt.order_by(order_col.desc())
+        if hasattr(StockNewsSummary, "id") and order_col is not StockNewsSummary.id:
+            stmt = stmt.order_by(order_col.desc(), StockNewsSummary.id.desc())
+
+    # Pagination
+    stmt = stmt.offset(offset).limit(limit)
+
+    total = db.execute(count_stmt).scalar_one()
+    rows = db.execute(stmt).scalars().all()
+    return total, rows
+
+@app.get("/api/market-info", response_model=NewsResponse)
+def get_market_info(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    ticker: Optional[str] = Query(None, description="Filter by ticker_1"),
+    search: Optional[str] = Query(None, description="Search in headline"),
+    order: Literal["asc", "desc"] = "desc",
+    order_by: Literal["id", "timestamp_human"] = "id",
+    db: Session = Depends(get_db),
+):
+    total, rows = fetch_market_info(
+        db,
+        limit=limit,
+        offset=offset,
+        ticker=ticker,
+        search=search,
+        order=order,
+        order_by=order_by,
+    )
+    return {
+        "total": total,
+        "items": [
+            NewsItem(
+                headline=r.headline,
+                timestamp_human=r.timestamp_human,
+                topic_tags=r.topic_tags,
+                ticker_1=r.ticker_1,
+            )
+            for r in rows
+        ],
+    }
+
+
+def to_utc_ts(d: date, t: dtime | None) -> int:
+    """
+    Combine date + time to a UTC epoch seconds int.
+    If time is None, default to 00:00:00.
+    """
+    if t is None:
+        t = dtime(0, 0, 0)
+    dt = datetime.combine(d, t).replace(tzinfo=timezone.utc)
+    return int(dt.timestamp())
+
+def _to_time(val: Optional[Union[dtime, timedelta, str]]) -> Optional[dtime]:
+    """
+    Normalize DB time column to datetime.time.
+    - timedelta -> (datetime.min + val).time()
+    - 'HH:MM[:SS]' -> parsed time
+    - None -> None
+    """
+    if val is None:
+        return None
+    if isinstance(val, dtime):
+        return val
+    if isinstance(val, timedelta):
+        # timedelta since midnight
+        return (datetime.min + val).time()
+    if isinstance(val, str):
+        # be forgiving: 'HH:MM' or 'HH:MM:SS'
+        try:
+            fmt = "%H:%M:%S" if val.count(":") == 2 else "%H:%M"
+            return datetime.strptime(val, fmt).time()
+        except Exception:
+            return None
+    return None
+
+def _to_utc_epoch(ts_date: date, ts_time: Optional[dtime]) -> int:
+    if ts_time is None:
+        ts_time = dtime(0, 0, 0)
+    dt = datetime.combine(ts_date, ts_time).replace(tzinfo=timezone.utc)
+    return int(dt.timestamp())
+
+# ---- endpoint -------------------------------------------------------------
+
+TICKER_TO_MODEL = {
+    "AAPL": CombinedAAPLData,
+    "GOOG": CombinedGOOGData,
+    "IBM":  CombinedIBMData,
+    "MSFT": CombinedMSFTData,
+    "TSLA": CombinedTSLAData,
+    "UL":   CombinedULData,
+    "WMT":  CombinedWMTData,
+}
+
+@app.get("/candles")
+def get_candles(
+    ticker: Literal["AAPL", "GOOG", "IBM", "MSFT", "TSLA", "UL", "WMT"],
+    upto: str,                    # same format as Combined*.timestamp, e.g. "YYYY-MM-DD HH:MM:SS"
+    limit: int = 120,
+    db: Session = Depends(get_db),
+):
+    Model = TICKER_TO_MODEL[ticker]
+
+    # newest -> oldest (so we can limit), then reverse
+    rows = (
+        db.query(
+            Model.timestamp_date,
+            Model.timestamp_time,
+            Model.hist_open.label("open"),
+            Model.hist_high.label("high"),
+            Model.hist_low.label("low"),
+            Model.adjusted_close.label("close"),
+        )
+        .filter(Model.timestamp <= upto)
+        .order_by(Model.timestamp_date.desc(), Model.timestamp_time.desc())
+        .limit(limit)
+        .all()
+    )
+
+    if not rows:
+        return []
+
+    rows = list(reversed(rows))  # oldest -> newest for the chart
+
+    candles = []
+    for r in rows:
+        ts_time = _to_time(r[1])
+        epoch = _to_utc_epoch(r[0], ts_time)
+        candles.append({
+            "time": epoch,
+            "open": float(r.open) if r.open is not None else None,
+            "high": float(r.high) if r.high is not None else None,
+            "low":  float(r.low)  if r.low  is not None else None,
+            "close": float(r.close) if r.close is not None else None,
+        })
+
+    return candles

@@ -354,3 +354,13 @@ class OrderDetails(Base):
     status = Column(Text, nullable=False)
     quantity_filled = Column(Integer, nullable=False)
     price = Column(Float)
+
+class StockNewsSummary(Base):
+    __tablename__ = "stock_news_summary"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)  # <-- new
+    headline = Column(Text, nullable=False)
+    headline = Column(Text, primary_key=True) 
+    timestamp_human = Column(Text, nullable=True)
+    topic_tags = Column(Text, nullable=True)
+    ticker_1 = Column(Text, nullable=True)
