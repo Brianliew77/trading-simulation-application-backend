@@ -43,9 +43,9 @@ class OrderCreate(BaseModel):
 
 class NewsItem(BaseModel):
     headline: str
-    timestamp_human: str | None = None
-    topic_tags: str | None = None
-    ticker_1: str | None = None
+    timestamp_human: Optional[str] = None
+    topic_tags: Optional[str] = None
+    ticker_1_label: Optional[str] = None   # <-- new
 
 class NewsResponse(BaseModel):
     total: int
@@ -246,21 +246,21 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db)):
 def fetch_market_info(
     db: Session,
     *,
-    ticker: Optional[str] = None,
+    ticker: Optional[str] = None,   # still filters by ticker_1
     search: Optional[str] = None,
     order: Literal["asc", "desc"] = "asc",  # default to id ascending for 1..20
     order_by: Literal["id", "timestamp_human"] = "id",
 ) -> List[StockNewsSummary]:
     """
     Return rows where id is between 1 and 20 (inclusive).
-    Deterministic ordering via `order_by` (defaults to id).
+    Output includes ticker_1_label instead of ticker_1.
     """
     stmt = select(StockNewsSummary).options(
         load_only(
             StockNewsSummary.headline,
             StockNewsSummary.timestamp_human,
             StockNewsSummary.topic_tags,
-            StockNewsSummary.ticker_1,
+            StockNewsSummary.ticker_1_label,   # <-- changed
         )
     )
 
@@ -269,6 +269,7 @@ def fetch_market_info(
         raise ValueError("StockNewsSummary.id is required to filter id=1..20.")
     stmt = stmt.where(StockNewsSummary.id.between(1, 20))
 
+    # Keep filtering by the raw ticker code if provided
     if ticker:
         stmt = stmt.where(StockNewsSummary.ticker_1 == ticker)
 
@@ -280,7 +281,6 @@ def fetch_market_info(
 
     if order == "asc":
         stmt = stmt.order_by(order_col.asc())
-        # stable tie-breaker
         if order_col is not StockNewsSummary.id:
             stmt = stmt.order_by(order_col.asc(), StockNewsSummary.id.asc())
     else:
@@ -296,7 +296,7 @@ def fetch_market_info(
 def get_market_info(
     ticker: Optional[str] = Query(None, description="Filter by ticker_1"),
     search: Optional[str] = Query(None, description="Search in headline"),
-    order: Literal["asc", "desc"] = "asc",  # default to id ascending for 1..20
+    order: Literal["asc", "desc"] = "asc",
     order_by: Literal["id", "timestamp_human"] = "id",
     db: Session = Depends(get_db),
 ):
@@ -314,7 +314,7 @@ def get_market_info(
                 headline=r.headline,
                 timestamp_human=r.timestamp_human,
                 topic_tags=r.topic_tags,
-                ticker_1=r.ticker_1,
+                ticker_1_label=getattr(r, "ticker_1_label", None),  # <-- changed
             )
             for r in rows
         ],

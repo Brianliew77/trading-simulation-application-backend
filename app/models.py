@@ -363,4 +363,4 @@ class StockNewsSummary(Base):
     headline = Column(Text, primary_key=True) 
     timestamp_human = Column(Text, nullable=True)
     topic_tags = Column(Text, nullable=True)
-    ticker_1 = Column(Text, nullable=True)
+    ticker_1_label = Column(Text, nullable=True)
