@@ -374,21 +374,20 @@ TICKER_TO_MODEL = {
 @app.get("/candles")
 def get_candles(
     ticker: Literal["AAPL", "GOOG", "IBM", "MSFT", "TSLA", "UL", "WMT"],
-    upto: str,                    # same format as Combined*.timestamp, e.g. "YYYY-MM-DD HH:MM:SS"
+    upto: str,                 # "YYYY-MM-DD HH:MM:SS" or "...T...Z" (string compare still ok if your column is text)
     limit: int = 120,
     db: Session = Depends(get_db),
 ):
     Model = TICKER_TO_MODEL[ticker]
 
-    # newest -> oldest (so we can limit), then reverse
+    # Get newest->oldest so we can limit, then reverse to oldest->newest for charting
     rows = (
         db.query(
             Model.timestamp_date,
             Model.timestamp_time,
-            Model.hist_open.label("open"),
-            Model.hist_high.label("high"),
-            Model.hist_low.label("low"),
-            Model.adjusted_close.label("close"),
+            Model.last_price.label("close"),
+            Model.high_min.label("high"),
+            Model.low_min.label("low"),
         )
         .filter(Model.timestamp <= upto)
         .order_by(Model.timestamp_date.desc(), Model.timestamp_time.desc())
@@ -399,18 +398,34 @@ def get_candles(
     if not rows:
         return []
 
-    rows = list(reversed(rows))  # oldest -> newest for the chart
+    rows = list(reversed(rows))  # oldest -> newest
 
     candles = []
+    prev_close: Optional[float] = None
     for r in rows:
         ts_time = _to_time(r[1])
         epoch = _to_utc_epoch(r[0], ts_time)
+
+        close = float(r.close) if r.close is not None else None
+        high  = float(r.high)  if r.high  is not None else close
+        low   = float(r.low)   if r.low   is not None else close
+
+        # Derive intraday open as previous bar's close (fallback to this bar's close)
+        open_ = prev_close if prev_close is not None else close
+
+        # Safety: if any are None, collapse to close
+        if open_ is None: open_ = close
+        if high  is None: high  = max(open_, close) if open_ is not None and close is not None else close
+        if low   is None: low   = min(open_, close) if open_ is not None and close is not None else close
+
         candles.append({
             "time": epoch,
-            "open": float(r.open) if r.open is not None else None,
-            "high": float(r.high) if r.high is not None else None,
-            "low":  float(r.low)  if r.low  is not None else None,
-            "close": float(r.close) if r.close is not None else None,
+            "open": open_,
+            "high": high,
+            "low":  low,
+            "close": close,
         })
+
+        prev_close = close
 
     return candles
