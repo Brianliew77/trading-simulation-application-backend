@@ -246,20 +246,17 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db)):
 def fetch_market_info(
     db: Session,
     *,
-    limit: int = 50,
-    offset: int = 0,
     ticker: Optional[str] = None,
     search: Optional[str] = None,
     order: Literal["asc", "desc"] = "desc",
     order_by: Literal["id", "timestamp_human"] = "id",
-) -> Tuple[int, List[StockNewsSummary]]:
+    limit: int = 20,  # fixed top 20
+) -> List[StockNewsSummary]:
     """
-    Fetch 4 columns with filters/pagination and deterministic ordering.
-
-    order_by:
-      - "id"               -> uses StockNewsSummary.id when available (insert order).
-      - "timestamp_human"  -> orders by timestamp_human text column.
-    order: "asc" | "desc"
+    Return the top N (default 20) news rows.
+    Deterministic ordering via `order_by`:
+      - "id" (recommended; reflects insert order if your table has an auto-increment id)
+      - "timestamp_human"
     """
     stmt = select(StockNewsSummary).options(
         load_only(
@@ -276,18 +273,12 @@ def fetch_market_info(
     if search:
         stmt = stmt.where(StockNewsSummary.headline.ilike(f"%{search}%"))
 
-    # Count total before paging
-    count_stmt = select(func.count()).select_from(stmt.subquery())
+    # Choose order column; fallback if attribute not present
+    order_col = getattr(StockNewsSummary, order_by, None) or StockNewsSummary.timestamp_human
 
-    # ----- Ordering -----
-    # Choose the primary order column (fallback to timestamp_human if id not present)
-    order_col = getattr(StockNewsSummary, order_by, None)
-    if order_col is None:
-        order_col = StockNewsSummary.timestamp_human  # safe fallback
-
-    if order.lower() == "asc":
+    if order == "asc":
         stmt = stmt.order_by(order_col.asc())
-        # add stable tie-breaker if id exists and isn't the primary column
+        # stable tie-breaker if id exists and isn't primary order col
         if hasattr(StockNewsSummary, "id") and order_col is not StockNewsSummary.id:
             stmt = stmt.order_by(order_col.asc(), StockNewsSummary.id.asc())
     else:
@@ -295,34 +286,30 @@ def fetch_market_info(
         if hasattr(StockNewsSummary, "id") and order_col is not StockNewsSummary.id:
             stmt = stmt.order_by(order_col.desc(), StockNewsSummary.id.desc())
 
-    # Pagination
-    stmt = stmt.offset(offset).limit(limit)
+    stmt = stmt.limit(limit)
 
-    total = db.execute(count_stmt).scalar_one()
     rows = db.execute(stmt).scalars().all()
-    return total, rows
+    return rows
+
 
 @app.get("/api/market-info", response_model=NewsResponse)
 def get_market_info(
-    limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
     ticker: Optional[str] = Query(None, description="Filter by ticker_1"),
     search: Optional[str] = Query(None, description="Search in headline"),
     order: Literal["asc", "desc"] = "desc",
     order_by: Literal["id", "timestamp_human"] = "id",
     db: Session = Depends(get_db),
 ):
-    total, rows = fetch_market_info(
+    rows = fetch_market_info(
         db,
-        limit=limit,
-        offset=offset,
         ticker=ticker,
         search=search,
         order=order,
         order_by=order_by,
+        limit=20,  # fixed top 20
     )
     return {
-        "total": total,
+        "total": len(rows),
         "items": [
             NewsItem(
                 headline=r.headline,
@@ -333,7 +320,6 @@ def get_market_info(
             for r in rows
         ],
     }
-
 
 def to_utc_ts(d: date, t: dtime | None) -> int:
     """
