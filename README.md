@@ -116,7 +116,7 @@ app.add_middleware(
 )
 ```
 
-## Endpoints (summary)
+## Endpoints
 
 - `GET /ping-db` → quick DB connectivity check.
 - `GET /timestamps` → distinct timestamps (uses AAPL combined table as reference).
